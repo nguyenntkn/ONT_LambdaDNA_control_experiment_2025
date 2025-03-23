@@ -1,12 +1,34 @@
 
+Overall pipeline:
+Step 1: Use FastQC 
+Step 2: Use fastp to trim low quality reads
+Step 3: Use minimap2 for alignment
+Step 4: Use samtools to process alignment file
+Step 5: Visualize on IGV
 
+
+Directories to create:
+Master directory to store sequencing files called "Work_stuff", containing:
+  "fastqc_reports"
+  "trimmed_fastq"
+  "trimmed_fastq_reports" (Optional)
+  "SAM_files"
+  "BAM_files"
+  
+
+
+
+
+
+
+# SET UP:
 # Before proceeding, create a appropriate working directory:
 mk /home/user/Work_stuff
 cd /home/user/Work_stuff
 
 # In the ONT run, we have raw sequencing files.
 # If enabled basecalling, the resulting files will be written into a folder called "fastq_pass"
-# Basecalled files are stored as .fastq.gz (compressed?)
+# Basecalled files are stored as .fastq.zip (compressed?)
 # fastq_pass folder stores reads with high quality score, as opposed to fastq_fail.
 # I like to create a copy of that folder (fastq_pass_backup) and use this for analysis.
 
@@ -16,9 +38,23 @@ cd /home/user/Work_stuff
 # Unzip that folder:
 unzip fastq_pass_backup.zip
 
-# STEP 1: Running FastQC for quality control
-# Need to open conda environment to access fastqc tool.
+
+# Get reference genome, make sure to be in conda environment to work.
 anaconda2023
+efetch -db nuccore -id NC_001416.1 -format fasta > lambda_genome.fasta
+
+# Then index the reference genome using minimap2 in conda
+# Need to activate minimap2 environment in conda. Refer to tools_installation.sh for installation.
+conda activate minimap2_env
+minimap2 -d lambda_genome.mmi /home/user/Work_stuff/lambda_genome.fasta 
+
+# Exit minimap2 environment.
+# NOTE: this will also exit conda and the current terminal.
+exit
+
+#===============================================================================================
+
+# STEP 1: Running FastQC for quality control
 
 # Activate fastqc environment
 conda activate fastqc_env
@@ -35,6 +71,8 @@ exit
 
 # Need to manually go back to anaconda2023 environment.
 anaconda2023
+
+#===============================================================================================
 
 # STEP 2: Use fastp to trim or filter out problematic sequences.
 # Activate fastp environment
@@ -55,20 +93,18 @@ exit
 anaconda2023
 
 # Optional: fastqc again to confirm the quality improvements.============== HERE!!
-mkdir trimmed_qc_fastq
-/home/user/FastQC/fastqc trimmed_fastq/*.fastq -o trimmed_qc_fastq/
+mkdir trimmed_fastq_reports
+/home/user/FastQC/fastqc trimmed_fastq/*.fastq -o trimmed_fastq_reports/
 
-# Get reference genome
-# This one doesn't really work. Need some fixing
-# ref_genome_lambda=https://www.ncbi.nlm.nih.gov/nuccore/NC_001416.1?report=fasta
-# wget $ref_genome_lambda -O lambda_genome.fasta
+#===============================================================================================
 
-# Index genome
-# minimap2 -d lambda_genome.mmi /home/user/Work_stuff/lambda_genome.fasta 
+# STEP 3: Alignment 
+# Use minimap2 for alignment. Need to activate minimap2 environment in conda.
+conda activate minimap2_env
 
 
-# mkdir /home/user/Work_stuff/Sam_files
-# Use minimap2 for alignment
+mkdir /home/user/Work_stuff/Sam_files
+
 
 
 
@@ -97,6 +133,7 @@ for file in /home/user/Work_stuff/Sam_files/*.sam; do
 done
 
 
+# Create associated BAI files with BAM files
 for bam_file in /home/user/Work_stuff/Bam_files/*.bam; do
     samtools index "$bam_file" "/home/user/Work_stuff/Bam_files/$(basename "$bam_file").bai"
 done
